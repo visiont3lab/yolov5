@@ -14,7 +14,6 @@ source env/bin/activate
 pip install fastapi uvicorn torch torchvision requests wandb tensorboard tqdm pandas opencv-python matplotlib seaborn onnx coremltools onnxruntime
 ```
 
-
 ```bash
 # Dowlnoad weights
 cd yolov5
@@ -23,7 +22,6 @@ cd yolov5
 python detect.py --source 0  --weights yolov5s.pt --conf 0.25
 python detect.py --source   path/*.jpg --weights yolov5s.pt --conf 0.25
 ```
-
 
 ```bash
 # Get Dataset
@@ -40,7 +38,6 @@ curl -L "https://app.roboflow.com/ds/LlUYHr0ytK?key=qBzMwv5jTl" > roboflow.zip; 
 python train.py --img 640 --batch 8 --epochs 200 --data datasets/dadi/yolov5_pytorch_dataset/data.yaml --weights yolov5m.pt --cfg ./models/custom/yolov5m.yaml --name sapera_yolov5m_640  --cache
 python train.py --img 640 --batch 8 --epochs 200 --data datasets/dadi/yolov5_pytorch_dataset/data.yaml --weights yolov5s.pt --cfg ./models/custom/yolov5s.yaml --name sapera_yolov5s_640  --cache
 
-
 # -- Test
 python detect.py --img 640 --source 0 --weights runs/train/yolov5s_320/weights/best.pt --conf 0.5
 #python detect.py --img 640 --source 0 --weights runs/train/yolov5s_640/weights/best.pt --conf 0.5
@@ -56,4 +53,8 @@ python models/export.py --weights runs/train/sapera_yolov5m_640_latest/weights/b
 python models/export.py --weights runs/train/sapera_yolov5s_640/weights/best.pt --img 640 --batch 1
 
 python detect.py --img 640 --source datasets/dadi/dadi.jpg --weights runs/train/yolov5m_640/weights/best.pt --conf 0.6 --iou-thres 0.5 --line-thicknes 1
+
+
+# Pynq z2 https://pynq.readthedocs.io/en/v2.5.1/getting_started/pynq_z2_setup.html
+
 ```

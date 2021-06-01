@@ -56,5 +56,39 @@ python detect.py --img 640 --source datasets/dadi/dadi.jpg --weights runs/train/
 
 
 # Pynq z2 https://pynq.readthedocs.io/en/v2.5.1/getting_started/pynq_z2_setup.html
+# Openvino https://thenewstack.io/tutorial-accelerate-ai-at-edge-with-onnx-runtime-and-intel-neural-compute-stick-2/
+# https://github.com/microsoft/onnxruntime/tree/master/dockerfiles#openvino
+
+
+# https://thenewstack.io/how-i-built-an-aiot-project-with-intel-ai-vision-x-developer-kit-and-arduino-yun/
+
+# Model conversion
+docker pull openvino/ubuntu20_dev:latest
+docker pull openvino/ubuntu20_runtime:latest
+
+docker run --rm \
+    -u 0 \
+    -v /dev:/dev \
+    -v /home/visionlab/Documents/annotation-tools/yolov5/deploy:/home/ws \
+    --network host \
+    -it openvino/ubuntu20_dev:latest \
+    /bin/bash  -c "cd /opt/intel/openvino/deployment_tools/model_optimizer && python3 mo.py  --input_model /home/ws/models/best.onnx --output_dir /home/ws/models"
+
+xhost +local:docker && \
+docker run --rm --name openvino_ncs2_dev  -it \
+        -u 0 \
+        --device /dev/video0 \
+        --device /dev/dri:/dev/dri \
+        --device-cgroup-rule='c 189:* rmw' -v \
+        ~/.Xauthority:/root/.Xauthority   \
+        -v /dev/bus/usb:/dev/bus/usb \
+        -v /home/visionlab/Documents/annotation-tools/yolov5/deploy:/opt/intel/openvino_2021.3.394/ws \
+        --network host \
+        -e DISPLAY=$DISPLAY \
+        -v /tmp/.X11-unix/:/tmp/.X11-unix/ \
+        -e PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native \
+        -v ${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native:Z \
+         visiont3lab/openvino-ubuntu18.04 \
+        /bin/bash
 
 ```

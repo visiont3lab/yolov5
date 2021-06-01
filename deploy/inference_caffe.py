@@ -1,16 +1,19 @@
-import numpy
-import onnxruntime as rt
-import cv2
-import os
 import numpy as np
-import torch, torchvision
 import time
+import cv2
+import matplotlib.pyplot as plt
+from PIL import Image
 
-# https://www.analyticsvidhya.com/blog/2020/08/selecting-the-right-bounding-box-using-non-max-suppression-with-implementation/
-# https://stackoverflow.com/questions/65824714/process-output-data-from-yolov5-tflite
-# https://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/
+# OpenCv inference engine
+# https://stackoverflow.com/questions/57007007/openvino-how-to-build-opencv-with-inference-engine-to-enable-loading-models-fro
+# pip3 uninstall opencv-python
+# pip3 uninstall opencv-contrib-python
+# pip3 install opencv-python-inference-engine
+# pip install cv2-plt-imshow
+ 
+# https://www.pyimagesearch.com/2020/01/06/raspberry-pi-and-movidius-ncs-face-recognition/
 
-# Malisiewicz et al.
+ # Malisiewicz et al.
 def non_max_suppression_fast(boxes, overlapThresh):
     # if there are no boxes, return an empty list
     if len(boxes) == 0:
@@ -57,44 +60,40 @@ def non_max_suppression_fast(boxes, overlapThresh):
     # integer data type
     return boxes[:,pick].astype("int"), pick
 
+
+prototxt="./models/FP16/best.xml"
+model="./models/FP16/best.bin"
+ 
 class_names = ['dado-M3', 'dado-M5', 'dado-M6', 'dado-M8', 'rondella-M3', 'rondella-M6', 'vite-croce', 'vite-esagonale', 'vite-taglio-grande', 'vite-taglio-piccola']
 class_colors =  [(125,0,0), (125,0,50), (125,100,0), (125,0,125),(0,255,0), (255,255,0), (125,0,255), (125,255,255), (0,0,255), (125,0,65)]
 conf = 0.8
+ 
+net = cv2.dnn.readNet(prototxt, model)
 
-sess = rt.InferenceSession("models/best.onnx")
-input_name = sess.get_inputs()[0].name
-label_name = sess.get_outputs()[0].name
-input_shapes = sess.get_inputs()[0].shape
-output_shapes = sess.get_outputs()[0].shape
-c, h ,w = (input_shapes[1],input_shapes[2],input_shapes[3])
-
-print(f"input name: {input_name}")
-print(f"input shapes: {input_shapes}")
-
-print(f"output name: {label_name}")
-print(f"output shapes: {output_shapes}")
-
-cv2.namedWindow('Image',cv2.WINDOW_NORMAL) 
-#folder_path = "../datasets/dadi/dataset_dadi_sapera"
-#names = os.listdir(folder_path)
-#for name in names:
-#    filename = os.path.join(folder_path,name)        
-#    print(filename)
-#    frame = cv2.imread(filename, cv2.IMREAD_COLOR)
+# https://medium.com/sclable/intel-openvino-with-opencv-f5ad03363a38
+# DNN_TARGET_CPU, DNN_TARGET_OPENCL (for Intel GPU FP32), DNN_TARGET_OPENCL_FP16 (for Intel GPU FP16, preferred), DNN_TARGET_MYRIAD (for NCS 2), DNN_TARGET_FPGA, DNN_TARGET_CUDA (for NVIDIA GPU FP 32) and DNN_TARGET_CUDA_FP16 (for NVIDIA GPU FP16, preferred).
+net.setPreferableBackend(cv2.dnn.DNN_BACKEND_INFERENCE_ENGINE)
+net.setPreferableTarget(cv2.dnn.DNN_TARGET_MYRIAD) # NCS 2
+#net.setPreferableTarget(cv2.dnn.DNN_TARGET_VPU)
  
 cap = cv2.VideoCapture(0)
+
 while True:
     ret, frame = cap.read()
     iH, iW = (frame.shape[0],frame.shape[1])
-
     im = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    im = cv2.resize(im,(h,w))
-    im = im / 255.0  # 0 - 255 to 0.0 - 1.0   
-    im = np.transpose(im, (2, 0,1))
-    im = im[np.newaxis,:,:,:]
-    pred_onx = sess.run( [label_name], {input_name: im.astype(np.float32)})[0]
-    
-    pred_onx = pred_onx[0]                      # x(1, 25200, 7) to x(25200, 7)
+    im = cv2.resize(im,(640,640))
+
+    #frame = imutils.resize(frame, width=400)
+    t1 = cv2.getTickCount()
+
+    (h, w) = im.shape[:2]
+    blob = cv2.dnn.blobFromImage(im,1/255,size=(im.shape[1],im.shape[0]))
+
+    net.setInput(blob)
+    detections = net.forward()
+
+    pred_onx = detections[0]                      # x(1, 25200, 7) to x(25200, 7)
     boxes = np.squeeze(pred_onx[:, :4])       # boxes  [25200, 4]
     scores = np.squeeze( pred_onx[:, 4:5])    # confidences  [25200, 1]
     
@@ -109,7 +108,7 @@ while True:
     xyxy = np.array([xx - ww / 2, yy - hh / 2, xx + ww / 2, yy + hh / 2])  # xywh to xyxy   [4, 25200]  # coordinate with respect to image model (h,w)
 
     # --- Data after nms
-    pick = [idx for idx in range(0,len(scores)) if scores[idx] > conf]
+    pick = [idx for idx in range(0,len(scores)) if scores[idx] > 0.9]
     xyxy = xyxy[:,pick] 
     scores = scores[pick]
     classes = classes[pick]
@@ -138,8 +137,12 @@ while True:
             idx = classes[i]
             print(class_names[idx],np.round(scores[i],2),[xmin,ymin,xmax,ymax])
                         
-            cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), class_colors[classes[i]], 2)
-    
-    cv2.imshow("Image", frame)
-    cv2.waitKey(1)
-            
+            cv2.rectangle(frame, (xmin,ymin), (xmax,ymax), class_colors[idx], 2)            
+            cv2.putText(frame, class_names[idx], (xmin, ymin-10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, class_colors[idx], 2)
+            #cv2.putText(frame,"FPS: {0:.2f}".format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
+
+ 
+    cv2.imshow("Frame", frame)
+    cv2.waitKey(33)
+    #plt.imshow(frame)
+    #plt.pause(0.001)

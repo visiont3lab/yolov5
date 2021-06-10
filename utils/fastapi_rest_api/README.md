@@ -49,7 +49,11 @@ python detect.py --img 416 --source 0 --weights runs/train/yolov5m_640/weights/b
 
 # F16
 #python models/export.py --weights runs/train/sapera_yolov5m_640/weights/best.pt --img 640 --batch 1 --half --device 0
-python models/export.py --weights runs/train/sapera_yolov5m_640_latest/weights/best.pt --img 640 --batch 1
+#python models/export.py --weights runs/train/sapera_yolov5m_640_latest/weights/best.pt --img 640 --batch 1
+python models/export.py --weights runs/train/sapera_yolov5m_640_latest/weights/best.pt --include onnx --img 320 --batch 1
+python models/export.py --weights runs/train/sapera_yolov5s_640/weights/best.pt --include onnx --img 320 --batch 1
+
+
 python models/export.py --weights runs/train/sapera_yolov5s_640/weights/best.pt --img 640 --batch 1
 
 python detect.py --img 640 --source datasets/dadi/dadi.jpg --weights runs/train/yolov5m_640/weights/best.pt --conf 0.6 --iou-thres 0.5 --line-thicknes 1
